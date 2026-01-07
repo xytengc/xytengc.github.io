@@ -1,1 +1,23 @@
+# ===== 站点基本信息（必改）=====
+title: "你的博客标题"          # 比如「XX的技术博客」
+subtitle: "你的副标题"         # 比如「记录编程学习的点滴」
+description: "你的博客描述"    # 搜索引擎收录用
+keywords: "Java,Python,前端"   # 博客关键词
+author: "你的名字"             # 比如「张三」
+email: "你的邮箱@xxx.com"      # 评论区显示的邮箱
+url: "https://你的用户名.github.io"  # 你的网站地址
+baseurl: ""                    # 留空即可（不要改）
 
+# ===== 社交链接（必改）=====
+github: "你的GitHub用户名"     # 比如「testuser」
+zhihu: "你的知乎ID"            # 可选，没有就删
+weibo: "你的微博ID"            # 可选，没有就删
+# 其他社交链接（小红书、B站等），没有就直接删除对应行
+
+# ===== 外观配置（可选改）=====
+avatar: "/assets/img/avatar.png"  # 你的头像路径（后续上传图片到这个位置）
+favicon: "/assets/img/favicon.ico" # 网站图标（可选）
+header-img: "/assets/img/bg.jpg"   # 首页头部背景图
+
+# ===== 功能配置（新手暂时不动）=====
+# 评论、统计、搜索等功能，先搞定基础展示，后续再配置
