@@ -56,9 +56,9 @@ T_recv+T_Com+T_app+T_Arbit+T_trans = 19(数据处理有效位为17bit)+1+1+1+18 
 后从机返回： AA 0003 0001 0 000 40 01 23 45 67 89 ab cd ef 28 (未找到设备) 
             AA 0003 0001 0 000 40 01 00 00 00 00 00 00 00 CC (找到设备并读取)  
 发送端：   
-![alt text](./image/trans.png) 
+![alt text](../img/image/trans.png)  
 接收端：  
-![alt text](./image/recv.png)
+![alt text](../img/image/recv.png)  
 前从机接收：同后从机   
 2、自动编号功能  
 3、写数据功能  
@@ -115,24 +115,24 @@ AA 0003 0001 0 000 08 00 00 00 00 00 00 00 ff 3e (128~256个周期读)
 前从机接收：同后从机   
 #### 发送端：  
 >TX端发送写指令，从00开始往后写8个1(ff)的数据  
-![alt text](./image/TX_wirte_ff_trans_pre.png)
+![alt text](../img/image/TX_wirte_ff_trans_pre.png)
 >TX端返回写完的指令反馈  
-![alt text](./image/TX_wirte_ff_recv_post.png)
+![alt text](../img/image/TX_wirte_ff_recv_post.png)
 >TX端发送读指令，从00开始往后读8个的数据  
-![alt text](./image/TX_read_trans_pre.png)
+![alt text](../img/image/TX_read_trans_pre.png)
 >TX端返回读回来的数据  
-![alt text](./image/TX_read_ff_recv_post.png)
+![alt text](../img/image/TX_read_ff_recv_post.png)
 >TX端发送自动编号指令  
-![alt text](./image/TX_write_ID_trans_pre.png)
+![alt text](../img/image/TX_write_ID_trans_pre.png)
 >TX端返回自动编号完的指令反馈，其中数据位代表了对TX端往后多少个设备进行编号
-![alt text](./image/TX_write_ID_recv_post.png)
+![alt text](../img/image/TX_write_ID_recv_post.png)
 #### 接收端(重点关注握手信号和数据处理周期)：  
 >RX端接收到写数据指令并进行数据处理  
-![alt text](./image/RX_wirte_ff_recv_pre.png)
+![alt text](../img/image/RX_wirte_ff_recv_pre.png)
 > RX端接收到读数据指令并进行数据处理  
-![alt text](./image/RX_read_recv_pre.png)
+![alt text](../img/image/RX_read_recv_pre.png)
 > RX端接收到自动编号指令并进行数据处理  
-![alt text](./image/RX_wirte_ID_recv_pre.png)  
+![alt text](../img/image/RX_wirte_ID_recv_pre.png)  
 
 | 功能 | 进度 | 说明 |                                              
 |:----|:----:|:------:|                           
@@ -357,13 +357,13 @@ IIC控制模块资源使用：lut 878 19.6%
 实验现象：主机发送完数据并回收到数据，RUN灯常亮；从机由于时自动编号，会2s闪一次，停在Wanning状态(可优化)
 从机完成后用读EEPROM程序进行一次连续读调试，观察121个字节的内容，重点看第1个字节的内容修改为01则表示正确自动编号  
 (可以提前计算校验值，通过查看最后校验值判断是否成功自动编号) 校验值为3A   
-![alt text](./image/综合测试/自动编号验证写入EEPROM.png)
+![alt text](../img/image/综合测试/自动编号验证写入EEPROM.png)
 ### 修改ID测试 &#x2705;   
 实验目的：检验修改设备ID功能是否正确
 实验步骤：ID的存储单元位宽为8bit 发送写操作码 0001 地址 0x200 写个数 01 数据 所需修改ID号0x10   
         断电后上电观察EEPROM读初值是否正确 回收主机接收是否正确  
 实验现象：看第1个字节的内容修改为10则表示修改成功 计算校验值为A0  
-![alt text](./image/综合测试/修改ID.png)  
+![alt text](../img/image/综合测试/修改ID.png)  
 >小问题：eeprom不能使用tx_done信号作为触发将数据寄存，而是要用o_decode_flag信号   
 因为只有自动编码、修改ID、修改初值时才需要写eeprom   
 ### 写数据测试 &#x2705;    
@@ -371,12 +371,12 @@ IIC控制模块资源使用：lut 878 19.6%
 实验步骤：发送写操作码 0001 地址 0x000 写位数 0F 数据 0x11AA 观察DO输出指示灯是否正确 回收主机接收是否正确   
          再发一条写数据报文 地址位数相同 数据为 0xEE55 (理论上指示灯由按间隔亮变成全亮)  
 实验现象：观察到返回数据正常，主机和从机RUN灯常亮，从机DO输出显示为11aa状态(低电平有效)   
-![alt text](./image/综合测试/write_11aa.png)   
+![alt text](../img/image/综合测试/write_11aa.png)   
 ### 读数据测试 &#x2705;   
 实验目的：检验修改设备读数据功能是否正确，主机是否能够收到从机的状态     
 实验步骤：发送读操作码 0000 地址 0x000 写位数 0F 数据 0x  观察DO输出指示灯是否正确 回收主机接收是否正确    
 实验现象：观察到回收的数据正常 主机和从机显示RUN状态灯常亮 DO显示灯不变化  
-![alt text](./image/综合测试/read16.png)
+![alt text](../img/image/综合测试/read16.png)
 
 # P7_26 
 完成功能测试  
@@ -497,14 +497,14 @@ adc系数: ((2.5V * 1000mV/V) / 0x7FFFFF )* 2^16 * 2^n (取小数点后n位，�
 >下面对UART通信作DEMO的创建，为后期MUC通信作准备  
 #  P8_8  UART通信
 UART通信仿真：
-![alt text](./image/uart/sim.png)  
+![alt text](../img/image/uart/sim.png)  
 主时钟为50Mhz，发送模式：起始位(下降沿)+8bit数据(由低到高)+结束(上升沿)  波特率 115200   
 单bit发送时间：1000_000_000/115200 = 8680 ns   
 
 UART实际上版测试：  
 步骤1、将RX和TX短接，上位机可以接收到回环数据。  
 步骤2、将RX和TX接上FPGA，外加一个GND，上位机可以接收到回环数据，示波器显示波形正常，一个bit8.680us的时钟周期   
-![alt text](./image/uart/top_uart.png)  
+![alt text](../img/image/uart/top_uart.png)  
 ## 至此UART通信验证成功!!
 #### 带FIFO 8*512的  
 Utilization Statistics    
@@ -588,7 +588,7 @@ BUG修复&#x2705;:增加报文容错，报文长度不超过19个byte(可修改)
 原因：发现串口助手发送频率过高时，收到的报文会比发送的少几条   
 通过示波器观察发现在FPGA接收上位机报文时，出现有些相同的报文重复发、不同的报文连续发。   
 导致收到报文存在收到相同报文、丢包的情况???    
-![alt text](./image/uart/image10ms.png)  
+![alt text](../img/image/uart/image10ms.png)  
 00 02 00 03 00 04 08 00 00 00 00 00 00 00 77 收了两次   
 分析：理论上上位机发送报文规定10ms的周期，则发送周期至少10ms以上(取决电脑CPU处理能力)，   
 但是出现了重复发连续发的情况，可以排除上位机的问题，分析USB转TTL模块。   
@@ -604,8 +604,8 @@ USB 转串口芯片（如 CH340、CP2102）的延迟：部分廉价转换芯片�
 5ms发一次：总接收报文条数: 1748 匹配正确的报文条数: 854 正确率: 48.86% (原因是在854条之后4条的接收出错，并且少收了第一条的回信)   
 问题：出现偶发性收报文出错   
 分析：  
-![alt text](./image/uart/image_5ms.png)   
-![alt text](./image/uart/image_5ms_a.png)   
+![alt text](../img/image/uart/image_5ms.png)   
+![alt text](../img/image/uart/image_5ms_a.png)   
 在划线后面添加一条 00 02 00 03 00 00 10 00 00 00 00 00 00 77 7E  则后面报文对对齐   
 错误报文：    
 00 00 00 23 00 00 00 00 00 00 00 00 00 02 00   
@@ -614,7 +614,7 @@ USB 转串口芯片（如 CH340、CP2102）的延迟：部分廉价转换芯片�
 00 00 00 03 02 00 00 00 00 10 00 00 00 00 00   
 
 原因1：发现有时序警告如下图，数据路径延迟：1.11 ns 逻辑延迟：0.06 ns 线网延迟：1.05 ns 可能由于布线拥塞或长距离信号传输   
-![alt text](./image/uart/cw.png)   
+![alt text](../img/image/uart/cw.png)   
 解决方法：由于cw调试文件的资源占用较大，将cw调试文件移除，布局布线不会造成时序问题   
 原因2：双绞线松动会导致收发乱码  (后续需要更换)
 - (单片机)5ms发一次： 总接收报文条数: 1370 匹配正确的报文条数: 1370 正确率: 100.00%    
@@ -650,9 +650,9 @@ USB 转串口芯片（如 CH340、CP2102）的延迟：部分廉价转换芯片�
 为了检测系统稳定性，可以在程序开始是取一段报文进行检验，待程序运行一段时间后随机取一段进行检验。    
 #### 手动随机取报文进行校验
 根据发送周期=1.08ms 可计算1s可完成近1000次收发。1小时近360万次发送   
-![alt text](Micsig/Time单次收发.png)  
-![alt text](Micsig/TimeAST通信收发间隔.png)  
-![alt text](Micsig/Time报文发送间隔.png)   
+![alt text](../img/image/Micsig/Time单次收发.png)  
+![alt text](../img/image/Micsig/TimeAST通信收发间隔.png)  
+![alt text](../img/image/Micsig/Time报文发送间隔.png)   
 通过示波器观察发送周期在1.08ms 板间通信周期15us左右   
 1、总接收报文条数: 26181 匹配正确的报文条数: 26181 正确率: 100.00%    
 2、总接收报文条数: 3790  匹配正确的报文条数: 3790  正确率: 100.00%  
