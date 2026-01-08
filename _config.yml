@@ -1,0 +1,100 @@
+# Site settings
+title: 花叶不湘伦第一世界
+SEOTitle: 花叶不湘伦的博客 | Xyteng Blog
+header-img: img/rick-sanchez-wallpapers.png
+email: 1300529055@qq.com
+description: "这里是 @花叶不湘伦 的个人博客，与你一起发现更大的世界 | 理想青年"
+keyword: "Xyteng, 博客, 个人网站, FPGA，图像算法"
+url: "https://xytengc.github.io" # your host, for absolute URL
+baseurl: "" # for example, '/blog' if your blog hosted on 'host/blog'
+
+# Publish posts or collection documents with a future date.
+future: true
+
+# SNS settings 社交账号配置（SNS settings）
+#这些用户名会被 _includes/sns-links.html 组件调用，生成对应平台的跳转链接
+RSS: false
+weibo_username: 7383447714
+zhihu_username: hallelujah-45-16
+github_username: xytengc
+# twitter_username: 花叶不湘伦
+#facebook_username:  花叶不湘伦的第一世界
+#linkedin_username:  firstname-lastname-idxxxx
+
+# 构建 / 编译配置
+# 代码高亮器（GitHub Pages 不支持 pygments，必须用 rouge）
+# 文章URL格式（pretty=美观格式，比如 /2026/01/09/fpga-note/）
+highlighter: rouge
+permalink: pretty
+paginate: 50
+exclude:
+  [
+    "less",
+    "node_modules",
+    "Gruntfile.js",
+    "package.json",
+    "README.md",
+    "README.zh.md",
+  ]
+anchorjs: true # 是否开启锚点功能（文章标题旁的小锚点图标）
+# 时区（注释掉了，如需解决国内时间差，取消注释设为 CN）
+# timezone: CN
+
+# Gems
+# from PR#40, to support local preview for Jekyll 3.0
+# make sure you have this gem installed
+# `$ gem install jekyll-paginate`
+# 插件（jekyll-paginate 是分页插件，必须加，否则分页功能失效）
+plugins: [jekyll-paginate]
+
+# Markdown settings
+# replace redcarpet to kramdown,
+# although redcarpet can auto highlight code, the lack of header-id make the catalog impossible, so I switch to kramdown
+# document: http://jekyllrb.com/docs/configuration/#kramdown
+markdown: kramdown
+kramdown:
+  input: GFM # 支持 GitHub 风格的 Markdown（比如表格、代码块）
+  syntax_highlighter_opts:
+    span:
+      line_numbers: false # 行内代码不显示行号
+    block:
+      line_numbers: true  # 代码块显示行号
+      start_line: 1 # 代码块行号从1开始
+
+# Disqus settings
+# disqus_username: xyt
+# duoshuo_username: xyt
+
+# Netease settings
+netease_comment: false
+
+# Analytics settings
+# Baidu Analytics
+ba_track_id: b22d923c823f96bffc4e9b356fc7c95c
+
+# Google Analytics
+ga_track_id: "G-97X6L57E01" # Format: UA-xxxxxx-xx
+ga_domain: auto
+
+# Sidebar settings
+sidebar: true # whether or not using Sidebar.
+sidebar-about-description: "一名即将放飞理想的有志青年 <br> " # <br> 是换行符
+sidebar-avatar: /img/apple-touch-icon.png # use absolute URL, seeing it's used in both `/` and `/about/`
+
+# Featured Tags
+featured-tags: true # whether or not using Feature-Tags
+featured-condition-size: 1 # A tag will be featured if the size of it is more than this condition value
+
+# Progressive Web Apps
+chrome-tab-theme-color: "#000000"
+service-worker: true
+
+# MathJax rendering for layout:page (e.g. post preview)
+page-mathjax: false
+
+# Friends
+friends:
+  [
+    { title: "YDXSLJY", href: "https://github.com/YDXSLJY" },
+
+  ]

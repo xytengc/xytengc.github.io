@@ -1,0 +1,19 @@
+{
+  "name": "Xyteng Blog",
+  "short_name": "Xyteng Blog",
+  "description": "这里是 @花叶不湘伦 的个人博客，与你一起发现更大的世界",
+  "icons": [{
+    "src": "icons/1280.jpg",
+    "sizes": "1280x1280",
+    "type": "image/jpg"
+  }, {
+    "src": "icons/336.jpg",
+    "sizes": "336x336",
+    "type": "image/jpg"
+  }],
+  "background_color": "#fff",
+  "theme_color": "#000",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait"
+}
