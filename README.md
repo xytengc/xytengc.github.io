@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 [xytengc Blog](https://xytengc.github.io/)
 ================================
 # 花叶不湘伦的第一世界❤️
