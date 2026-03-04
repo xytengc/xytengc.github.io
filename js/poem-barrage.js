@@ -68,10 +68,9 @@ let sideState = {
     right: { activeCount: 0, nextSpawnAt: 0 }
 };
 
-// 处理诗词文本，实现横向格式
+// 处理诗词文本，竖版显示
 function processPoemText(text) {
-    // 保持原文格式，不添加额外的换行
-    return text;
+    return text.replace(/\s+/g, '');
 }
 
 function initColumns() {
@@ -154,7 +153,10 @@ function createBarrageForSide(poem, color, sideKey) {
         pointer-events: none;
         user-select: none;
         line-height: ${barrageConfig.lineHeight};
-        white-space: nowrap;
+        writing-mode: vertical-rl;
+        text-orientation: upright;
+        white-space: normal;
+        letter-spacing: 2px;
         text-shadow: 0 0 8px rgba(255, 255, 255, 0.5), 1px 1px 3px rgba(0, 0, 0, 0.6), -1px 1px 3px rgba(0, 0, 0, 0.3);
         z-index: 9999;
         transition: opacity 1s ease-in-out;
