@@ -37,18 +37,16 @@ const poems = [
 
 // 弹幕配置
 const barrageConfig = {
-    speed: 0.4,
-    fontSize: 24,
-    interval: 1000,
+    speed: 0.5,          // 横向移动速度
+    fontSize: 20,      // 字体大小
+    interval: 2000,    // 弹幕生成间隔(毫秒)
     fontFamily: "'STKaiti', 'SimSun', 'Microsoft YaHei', serif",
     colors: ['#FFD700', '#98FB98', '#87CEEB', '#FFB6C1', '#DDA0DD', '#FFA07A'],
-    leftMargin: 30,
-    rightMargin: 30,
-    maxWidth: 120,
-    opacity: 1,
-    lineHeight: 1,
-    columns: 3,
-    columnCooldown: 3000
+    maxWidth: 300,      // 弹幕最大宽度
+    opacity: 1,        // 透明度
+    lineHeight: 1.2,    // 行高
+    columns: 1,         // 列数
+    columnCooldown: 5000 // 列冷却时间(毫秒)
 };
 
 // 全局变量
@@ -59,43 +57,28 @@ let rightColumns = [];
 let leftColumnCooldowns = [];
 let rightColumnCooldowns = [];
 let isPageVisible = true;
-let lastBarrageTime = 0;
 let activeBarrages = [];
 
-// 处理诗词文本，添加换行
+// 处理诗词文本，实现横向格式
 function processPoemText(text) {
-    const punctuation = ['。', '，', '；', '！', '？', '、', '.', ',', ';'];
-    let result = '';
-    let line = '';
-    let charCount = 0;
-    
-    for (let i = 0; i < text.length; i++) {
-        const char = text[i];
-        line += char;
-        charCount++;
-        
-        if (punctuation.includes(char) || charCount >= 6) {
-            result += line + '<br>';
-            line = '';
-            charCount = 0;
-        }
-    }
-    
-    if (line) {
-        result += line;
-    }
-    
-    return result;
+    // 保持原文格式，不添加额外的换行
+    return text;
 }
 
 // 初始化列数组
 function initColumns() {
+    // 初始化左侧列数组
     leftColumns = [];
     leftColumnCooldowns = [];
+    
+    // 初始化右侧列数组
     rightColumns = [];
     rightColumnCooldowns = [];
     
-    for (let i = 0; i < barrageConfig.columns; i++) {
+    // 为每侧创建指定数量的列
+    const columnCount = Math.max(1, barrageConfig.columns);
+    
+    for (let i = 0; i < columnCount; i++) {
         leftColumns[i] = [];
         leftColumnCooldowns[i] = 0;
         rightColumns[i] = [];
@@ -106,43 +89,11 @@ function initColumns() {
 // 检查列是否可用
 function isColumnAvailable(columnIndex, isLeft) {
     const cooldowns = isLeft ? leftColumnCooldowns : rightColumnCooldowns;
+    // 确保 cooldowns 数组存在且索引有效
+    if (!cooldowns || columnIndex < 0 || columnIndex >= cooldowns.length) {
+        return true;
+    }
     return Date.now() >= cooldowns[columnIndex];
-}
-
-// 选择最佳列
-function selectBestColumn(isLeft) {
-    const columns = isLeft ? leftColumns : rightColumns;
-    const availableColumns = [];
-    
-    for (let i = 0; i < columns.length; i++) {
-        if (isColumnAvailable(i, isLeft)) {
-            availableColumns.push(i);
-        }
-    }
-    
-    if (availableColumns.length === 0) {
-        return -1;
-    }
-    
-    let bestColumnIndex = availableColumns[0];
-    let highestPosition = Number.MAX_SAFE_INTEGER;
-    
-    for (let i = 0; i < availableColumns.length; i++) {
-        const columnIndex = availableColumns[i];
-        const positions = columns[columnIndex];
-        
-        if (positions.length === 0) {
-            return columnIndex;
-        }
-        
-        const currentHighest = Math.max(...positions);
-        if (currentHighest < highestPosition) {
-            highestPosition = currentHighest;
-            bestColumnIndex = columnIndex;
-        }
-    }
-    
-    return bestColumnIndex;
 }
 
 // 计算新弹幕的起始位置
@@ -151,157 +102,152 @@ function calculateStartPosition(columnIndex, isLeft, height) {
     const positions = columns[columnIndex] || [];
     
     if (positions.length === 0) {
-        return -height - 20;
+        return -height - 50;
     }
     
+    // 找到最底部的弹幕位置
     const bottomMost = Math.max(...positions);
-    let startPos = bottomMost + height * 1.2;
     
+    // 计算新弹幕的起始位置，确保与底部弹幕有足够的间距
+    let startPos = bottomMost + height * 1.5;
+    
+    // 确保起始位置在屏幕外
     if (startPos > 0) {
-        startPos = -height - 20;
+        startPos = -height - 50;
     }
     
     return startPos;
+}
+
+// 为指定侧创建弹幕
+function createBarrageForSide(poem, color, isLeft) {
+    const columnIndex = 0;
+    const columns = isLeft ? leftColumns : rightColumns;
+    
+    const barrage = document.createElement('div');
+    
+    // 设置弹幕样式
+    barrage.style.cssText = `
+        position: absolute;
+        max-width: ${barrageConfig.maxWidth}px;
+        width: auto;
+        font-size: ${barrageConfig.fontSize}px;
+        color: ${color};
+        opacity: 0;
+        ${isLeft ? 'left: -300px; right: auto;' : 'right: -300px; left: auto;'}
+        top: ${Math.random() * (window.innerHeight - 100)}px;
+        font-family: ${barrageConfig.fontFamily};
+        font-weight: normal;
+        pointer-events: none;
+        user-select: none;
+        line-height: ${barrageConfig.lineHeight};
+        white-space: nowrap;
+        text-shadow: 0 0 8px rgba(255, 255, 255, 0.5), 1px 1px 3px rgba(0, 0, 0, 0.6), -1px 1px 3px rgba(0, 0, 0, 0.3);
+        z-index: 9999;
+        transition: opacity 1s ease-in-out;
+    `;
+    
+    // 设置弹幕内容
+    barrage.innerHTML = processPoemText(poem);
+    container.appendChild(barrage);
+    
+    // 计算弹幕宽度
+    setTimeout(() => {
+        const width = barrage.offsetWidth;
+        const height = barrage.offsetHeight;
+        
+        // 设置初始位置
+        let left = isLeft ? -width : window.innerWidth;
+        const speed = isLeft ? barrageConfig.speed : -barrageConfig.speed;
+        
+        // 计算总距离和时间
+        const totalDistance = isLeft ? window.innerWidth + width : window.innerWidth + width;
+        const totalTime = totalDistance / Math.abs(speed);
+        
+        // 总冷却时间 = 动画时间 + 额外1秒
+        const totalCooldownTime = totalTime * 1000 + barrageConfig.columnCooldown;
+        
+        // 创建弹幕状态
+        const barrageId = Date.now() + Math.random();
+        const barrageState = {
+            id: barrageId,
+            element: barrage,
+            left: left,
+            width: width,
+            height: height,
+            columnIndex: columnIndex,
+            isLeft: isLeft,
+            totalTime: totalTime,
+            totalCooldownTime: totalCooldownTime,
+            speed: speed,
+            active: true
+        };
+        
+        // 添加到活跃弹幕列表
+        activeBarrages.push(barrageState);
+        
+        // 渐入效果
+        setTimeout(() => {
+            barrage.style.opacity = barrageConfig.opacity;
+        }, 100);
+        
+        // 动画函数
+        function move() {
+            if (!isPageVisible || !barrageState.active) return;
+            
+            // 更新位置
+            barrageState.left += barrageState.speed;
+            barrage.style.left = `${barrageState.left}px`;
+            
+            // 检查是否超出屏幕
+            if ((isLeft && barrageState.left > window.innerWidth) || (!isLeft && barrageState.left < -barrageState.width)) {
+                // 移除弹幕元素
+                if (barrage.parentNode === container) {
+                    container.removeChild(barrage);
+                }
+                
+                // 设置冷却时间
+                const cooldowns = isLeft ? leftColumnCooldowns : rightColumnCooldowns;
+                if (cooldowns) {
+                    cooldowns[columnIndex] = Date.now() + totalCooldownTime;
+                }
+                
+                // 从活跃弹幕列表中移除
+                const activeIndex = activeBarrages.findIndex(b => b.id === barrageId);
+                if (activeIndex !== -1) {
+                    activeBarrages.splice(activeIndex, 1);
+                }
+                
+                // 标记为非活跃
+                barrageState.active = false;
+            } else {
+                // 继续动画
+                requestAnimationFrame(move);
+            }
+        }
+        
+        // 启动动画
+        requestAnimationFrame(move);
+    }, 10);
 }
 
 // 创建单个弹幕
 function createBarrage() {
     if (!isPageVisible || !container) return;
     
-    const currentTime = Date.now();
-    if (currentTime - lastBarrageTime < barrageConfig.interval) {
-        return;
-    }
-    
     const poem = poems[Math.floor(Math.random() * poems.length)];
     const color = barrageConfig.colors[Math.floor(Math.random() * barrageConfig.colors.length)];
+    
+    // 随机选择左侧或右侧
     const isLeft = Math.random() > 0.5;
     
-    const columnIndex = selectBestColumn(isLeft);
-    if (columnIndex === -1) {
-        return;
-    }
-    
-    lastBarrageTime = currentTime;
-    
-    const barrage = document.createElement('div');
-    const columnWidth = barrageConfig.maxWidth;
-    
-    let left, right, textAlign;
-    if (isLeft) {
-        const offsetX = columnIndex * (columnWidth + 10) + barrageConfig.leftMargin;
-        left = `${offsetX}px`;
-        right = 'auto';
-        textAlign = 'right';
-    } else {
-        const offsetX = columnIndex * (columnWidth + 10) + barrageConfig.rightMargin;
-        left = 'auto';
-        right = `${offsetX}px`;
-        textAlign = 'left';
-    }
-    
-    barrage.style.cssText = `
-        position: absolute;
-        max-width: ${barrageConfig.maxWidth}px;
-        width: ${barrageConfig.maxWidth}px;
-        font-size: ${barrageConfig.fontSize}px;
-        color: ${color};
-        opacity: 0;
-        left: ${left};
-        right: ${right};
-        bottom: -100px;
-        text-align: ${textAlign};
-        font-family: ${barrageConfig.fontFamily};
-        font-weight: normal;
-        pointer-events: none;
-        user-select: none;
-        line-height: ${barrageConfig.lineHeight};
-        word-wrap: break-word;
-        word-break: break-all;
-        white-space: normal;
-        text-shadow: 0 0 8px rgba(255, 255, 255, 0.5), 1px 1px 3px rgba(0, 0, 0, 0.6), -1px 1px 3px rgba(0, 0, 0, 0.3);
-        z-index: 9999;
-        transition: opacity 1s ease-in-out;
-    `;
-    
-    barrage.innerHTML = processPoemText(poem);
-    container.appendChild(barrage);
-    
-    setTimeout(() => {
-        const height = barrage.offsetHeight;
-        const startPos = calculateStartPosition(columnIndex, isLeft, height);
-        let pos = startPos;
-        const speed = barrageConfig.speed * (0.8 + Math.random() * 0.4);
-        
-        const totalDistance = window.innerHeight + 20 - startPos;
-        const totalTime = totalDistance / speed;
-        
-        const columns = isLeft ? leftColumns : rightColumns;
-        columns[columnIndex].push(pos);
-        
-        const barrageId = Date.now() + Math.random();
-        const barrageState = {
-            id: barrageId,
-            element: barrage,
-            pos: pos,
-            columnIndex: columnIndex,
-            isLeft: isLeft,
-            totalTime: totalTime,
-            speed: speed,
-            active: true
-        };
-        
-        activeBarrages.push(barrageState);
-        
-        setTimeout(() => {
-            barrage.style.opacity = barrageConfig.opacity;
-        }, 100);
-        
-        function move() {
-            if (!isPageVisible || !barrageState.active) return;
-            
-            pos += speed;
-            barrage.style.bottom = `${pos}px`;
-            barrageState.pos = pos;
-            
-            if (pos > 50 && pos < window.innerHeight + 100) {
-                barrage.style.opacity = Math.max(0.4, barrageConfig.opacity - 0.1);
-            } else {
-                barrage.style.opacity = barrageConfig.opacity;
-            }
-            
-            if (pos > window.innerHeight + 20) {
-                if (barrage.parentNode === container) {
-                    container.removeChild(barrage);
-                }
-                
-                const columns = isLeft ? leftColumns : rightColumns;
-                const positions = columns[columnIndex];
-                const removeIndex = positions.indexOf(pos);
-                if (removeIndex !== -1) {
-                    positions.splice(removeIndex, 1);
-                }
-                
-                const cooldowns = isLeft ? leftColumnCooldowns : rightColumnCooldowns;
-                cooldowns[columnIndex] = Date.now() + totalTime * 1000 + barrageConfig.columnCooldown;
-                
-                const activeIndex = activeBarrages.findIndex(b => b.id === barrageId);
-                if (activeIndex !== -1) {
-                    activeBarrages.splice(activeIndex, 1);
-                }
-                
-                barrageState.active = false;
-            } else {
-                requestAnimationFrame(move);
-            }
-        }
-        
-        requestAnimationFrame(move);
-    }, 10);
+    // 为选定侧创建弹幕
+    createBarrageForSide(poem, color, isLeft);
 }
 
 // 初始化弹幕系统
 function initBarrageSystem() {
+    // 创建弹幕容器
     container = document.createElement('div');
     container.id = 'poem-barrage';
     container.style.cssText = `
@@ -316,13 +262,18 @@ function initBarrageSystem() {
     `;
     document.body.appendChild(container);
     
+    // 初始化列数组
     initColumns();
-    barrageInterval = setInterval(createBarrage, barrageConfig.interval);
     
-    for (let i = 0; i < barrageConfig.columns; i++) {
-        setTimeout(createBarrage, i * 500);
-    }
+    // 设置弹幕生成间隔
+    barrageInterval = setInterval(() => {
+        createBarrage();
+    }, barrageConfig.interval);
     
+    // 初始生成弹幕
+    setTimeout(createBarrage, 1000);
+    
+    // 监听窗口大小变化和页面可见性变化
     window.addEventListener('resize', handleResize);
     document.addEventListener('visibilitychange', handleVisibilityChange);
 }
@@ -335,38 +286,37 @@ function handleVisibilityChange() {
             clearInterval(barrageInterval);
             barrageInterval = null;
         }
+        // 暂停所有活跃弹幕的动画
         activeBarrages.forEach(barrage => {
             barrage.active = false;
         });
     } else {
         isPageVisible = true;
         if (!barrageInterval) {
-            barrageInterval = setInterval(createBarrage, barrageConfig.interval);
+            barrageInterval = setInterval(() => {
+                createBarrage();
+            }, barrageConfig.interval);
         }
-        
+        // 重新启动所有活跃弹幕的动画
         activeBarrages.forEach(barrage => {
             if (barrage.active === false && barrage.element) {
                 barrage.active = true;
+                // 重新启动动画
                 function resumeMove() {
                     if (!isPageVisible || !barrage.active) return;
                     
-                    barrage.pos += barrage.speed;
-                    barrage.element.style.bottom = `${barrage.pos}px`;
+                    barrage.left += barrage.speed;
+                    barrage.element.style.left = `${barrage.left}px`;
                     
-                    if (barrage.pos > window.innerHeight + 20) {
+                    if ((barrage.isLeft && barrage.left > window.innerWidth) || (!barrage.isLeft && barrage.left < -barrage.width)) {
                         if (barrage.element.parentNode === container) {
                             container.removeChild(barrage.element);
                         }
                         
-                        const columns = barrage.isLeft ? leftColumns : rightColumns;
-                        const positions = columns[barrage.columnIndex];
-                        const removeIndex = positions.indexOf(barrage.pos);
-                        if (removeIndex !== -1) {
-                            positions.splice(removeIndex, 1);
-                        }
-                        
                         const cooldowns = barrage.isLeft ? leftColumnCooldowns : rightColumnCooldowns;
-                        cooldowns[barrage.columnIndex] = Date.now() + barrage.totalTime * 1000 + barrageConfig.columnCooldown;
+                        if (cooldowns) {
+                            cooldowns[barrage.columnIndex] = Date.now() + barrage.totalCooldownTime;
+                        }
                         
                         const activeIndex = activeBarrages.findIndex(b => b.id === barrage.id);
                         if (activeIndex !== -1) {
@@ -381,24 +331,12 @@ function handleVisibilityChange() {
                 requestAnimationFrame(resumeMove);
             }
         });
-        
-        lastBarrageTime = Date.now();
     }
 }
 
 // 处理窗口大小变化
 function handleResize() {
-    if (window.innerWidth < 768) {
-        barrageConfig.leftMargin = 15;
-        barrageConfig.rightMargin = 15;
-        barrageConfig.maxWidth = 120;
-        barrageConfig.fontSize = 22;
-    } else {
-        barrageConfig.leftMargin = 25;
-        barrageConfig.rightMargin = 25;
-        barrageConfig.maxWidth = 150;
-        barrageConfig.fontSize = 20;
-    }
+    // 可以在这里添加响应式调整
 }
 
 // 公共API
@@ -414,7 +352,9 @@ window.poemBarrage = {
         
         if (newConfig.interval && barrageInterval) {
             clearInterval(barrageInterval);
-            barrageInterval = setInterval(createBarrage, barrageConfig.interval);
+            barrageInterval = setInterval(() => {
+                createBarrage();
+            }, barrageConfig.interval);
         }
     },
     
@@ -427,7 +367,9 @@ window.poemBarrage = {
     
     resume: function() {
         if (!barrageInterval) {
-            barrageInterval = setInterval(createBarrage, barrageConfig.interval);
+            barrageInterval = setInterval(() => {
+                createBarrage();
+            }, barrageConfig.interval);
         }
     },
     
