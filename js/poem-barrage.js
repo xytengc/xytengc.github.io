@@ -37,27 +37,36 @@ const poems = [
 
 // 弹幕配置
 const barrageConfig = {
-    speed: 0.5,          // 横向移动速度
-    fontSize: 20,      // 字体大小
-    interval: 2000,    // 弹幕生成间隔(毫秒)
+    riseSpeed: 0.75,      // 向上移动速度（px/帧）
+    speedJitter: 0.25,    // 速度随机浮动
+    fontSize: 20,
+    interval: 2200,       // 定时器触发间隔（毫秒）
+    minGlobalInterval: 1800, // 全局最小发射间隔（毫秒）
+    globalJitter: 700,    // 全局随机抖动（毫秒）
+    sideCooldown: 2800,   // 单侧最小冷却（毫秒）
+    sideCooldownJitter: 800,
+    minSpawnGap: 120,     // 底部保护区，避免堆叠
+    maxActivePerSide: 2,  // 每侧最大同时弹幕数量
+    sidePadding: 18,      // 距离左右边缘像素
+    sideWidthJitter: 36,  // 左右侧横向轻微随机
     fontFamily: "'STKaiti', 'SimSun', 'Microsoft YaHei', serif",
     colors: ['#FFD700', '#98FB98', '#87CEEB', '#FFB6C1', '#DDA0DD', '#FFA07A'],
-    maxWidth: 300,      // 弹幕最大宽度
-    opacity: 1,        // 透明度
-    lineHeight: 1.2,    // 行高
-    columns: 1,         // 列数
-    columnCooldown: 5000 // 列冷却时间(毫秒)
+    maxWidth: 300,
+    opacity: 1,
+    lineHeight: 1.2
 };
 
 // 全局变量
 let container;
 let barrageInterval;
-let leftColumns = [];
-let rightColumns = [];
-let leftColumnCooldowns = [];
-let rightColumnCooldowns = [];
 let isPageVisible = true;
 let activeBarrages = [];
+let nextGlobalSpawnAt = 0;
+
+let sideState = {
+    left: { activeCount: 0, nextSpawnAt: 0 },
+    right: { activeCount: 0, nextSpawnAt: 0 }
+};
 
 // 处理诗词文本，实现横向格式
 function processPoemText(text) {
@@ -65,67 +74,71 @@ function processPoemText(text) {
     return text;
 }
 
-// 初始化列数组
 function initColumns() {
-    // 初始化左侧列数组
-    leftColumns = [];
-    leftColumnCooldowns = [];
-    
-    // 初始化右侧列数组
-    rightColumns = [];
-    rightColumnCooldowns = [];
-    
-    // 为每侧创建指定数量的列
-    const columnCount = Math.max(1, barrageConfig.columns);
-    
-    for (let i = 0; i < columnCount; i++) {
-        leftColumns[i] = [];
-        leftColumnCooldowns[i] = 0;
-        rightColumns[i] = [];
-        rightColumnCooldowns[i] = 0;
+    sideState = {
+        left: { activeCount: 0, nextSpawnAt: 0 },
+        right: { activeCount: 0, nextSpawnAt: 0 }
+    };
+}
+
+function isSideAvailable(sideKey) {
+    const state = sideState[sideKey];
+    if (!state) return false;
+    if (Date.now() < state.nextSpawnAt) return false;
+    if (state.activeCount >= barrageConfig.maxActivePerSide) return false;
+
+    const bottomGuardLine = window.innerHeight - barrageConfig.minSpawnGap;
+    const hasNearBottomBarrage = activeBarrages.some((barrage) => {
+        return barrage.active && barrage.side === sideKey && barrage.top > bottomGuardLine;
+    });
+    return !hasNearBottomBarrage;
+}
+
+function removeBarrageState(barrageState) {
+    if (!barrageState || !barrageState.active) return;
+
+    barrageState.active = false;
+    if (barrageState.element && barrageState.element.parentNode === container) {
+        container.removeChild(barrageState.element);
+    }
+
+    const state = sideState[barrageState.side];
+    if (state) {
+        state.activeCount = Math.max(0, state.activeCount - 1);
+    }
+
+    const activeIndex = activeBarrages.findIndex((item) => item.id === barrageState.id);
+    if (activeIndex !== -1) {
+        activeBarrages.splice(activeIndex, 1);
     }
 }
 
-// 检查列是否可用
-function isColumnAvailable(columnIndex, isLeft) {
-    const cooldowns = isLeft ? leftColumnCooldowns : rightColumnCooldowns;
-    // 确保 cooldowns 数组存在且索引有效
-    if (!cooldowns || columnIndex < 0 || columnIndex >= cooldowns.length) {
-        return true;
+function animateBarrage(barrageState) {
+    function move() {
+        if (!barrageState.active) return;
+        if (!isPageVisible) {
+            requestAnimationFrame(move);
+            return;
+        }
+
+        barrageState.top -= barrageState.speed;
+        barrageState.element.style.top = `${barrageState.top}px`;
+
+        if (barrageState.top < -barrageState.height - 40) {
+            removeBarrageState(barrageState);
+            return;
+        }
+
+        requestAnimationFrame(move);
     }
-    return Date.now() >= cooldowns[columnIndex];
+
+    requestAnimationFrame(move);
 }
 
-// 计算新弹幕的起始位置
-function calculateStartPosition(columnIndex, isLeft, height) {
-    const columns = isLeft ? leftColumns : rightColumns;
-    const positions = columns[columnIndex] || [];
-    
-    if (positions.length === 0) {
-        return -height - 50;
-    }
-    
-    // 找到最底部的弹幕位置
-    const bottomMost = Math.max(...positions);
-    
-    // 计算新弹幕的起始位置，确保与底部弹幕有足够的间距
-    let startPos = bottomMost + height * 1.5;
-    
-    // 确保起始位置在屏幕外
-    if (startPos > 0) {
-        startPos = -height - 50;
-    }
-    
-    return startPos;
-}
-
-// 为指定侧创建弹幕
-function createBarrageForSide(poem, color, isLeft) {
-    const columnIndex = 0;
-    const columns = isLeft ? leftColumns : rightColumns;
-    
+// 为指定侧创建弹幕（左右两侧，从下向上）
+function createBarrageForSide(poem, color, sideKey) {
     const barrage = document.createElement('div');
-    
+
     // 设置弹幕样式
     barrage.style.cssText = `
         position: absolute;
@@ -134,8 +147,8 @@ function createBarrageForSide(poem, color, isLeft) {
         font-size: ${barrageConfig.fontSize}px;
         color: ${color};
         opacity: 0;
-        ${isLeft ? 'left: -300px; right: auto;' : 'right: -300px; left: auto;'}
-        top: ${Math.random() * (window.innerHeight - 100)}px;
+        left: 0;
+        top: 0;
         font-family: ${barrageConfig.fontFamily};
         font-weight: normal;
         pointer-events: none;
@@ -151,98 +164,74 @@ function createBarrageForSide(poem, color, isLeft) {
     barrage.innerHTML = processPoemText(poem);
     container.appendChild(barrage);
     
-    // 计算弹幕宽度
+    // 计算尺寸与起始位置
     setTimeout(() => {
         const width = barrage.offsetWidth;
         const height = barrage.offsetHeight;
-        
-        // 设置初始位置
-        let left = isLeft ? -width : window.innerWidth;
-        const speed = isLeft ? barrageConfig.speed : -barrageConfig.speed;
-        
-        // 计算总距离和时间
-        const totalDistance = isLeft ? window.innerWidth + width : window.innerWidth + width;
-        const totalTime = totalDistance / Math.abs(speed);
-        
-        // 总冷却时间 = 动画时间 + 额外1秒
-        const totalCooldownTime = totalTime * 1000 + barrageConfig.columnCooldown;
-        
+
+        const isLeft = sideKey === 'left';
+        const edgeJitter = Math.random() * barrageConfig.sideWidthJitter;
+        const left = isLeft
+            ? barrageConfig.sidePadding + edgeJitter
+            : window.innerWidth - width - barrageConfig.sidePadding - edgeJitter;
+        const top = window.innerHeight + 20;
+        const speed = barrageConfig.riseSpeed + Math.random() * barrageConfig.speedJitter;
+
         // 创建弹幕状态
         const barrageId = Date.now() + Math.random();
         const barrageState = {
             id: barrageId,
             element: barrage,
+            side: sideKey,
             left: left,
+            top: top,
             width: width,
             height: height,
-            columnIndex: columnIndex,
-            isLeft: isLeft,
-            totalTime: totalTime,
-            totalCooldownTime: totalCooldownTime,
             speed: speed,
             active: true
         };
-        
+
+        // 设置初始定位
+        barrage.style.left = `${left}px`;
+        barrage.style.top = `${top}px`;
+
+        const state = sideState[sideKey];
+        if (state) {
+            state.activeCount += 1;
+            state.nextSpawnAt = Date.now() + barrageConfig.sideCooldown + Math.random() * barrageConfig.sideCooldownJitter;
+        }
+
         // 添加到活跃弹幕列表
         activeBarrages.push(barrageState);
-        
+
         // 渐入效果
         setTimeout(() => {
             barrage.style.opacity = barrageConfig.opacity;
         }, 100);
-        
-        // 动画函数
-        function move() {
-            if (!isPageVisible || !barrageState.active) return;
-            
-            // 更新位置
-            barrageState.left += barrageState.speed;
-            barrage.style.left = `${barrageState.left}px`;
-            
-            // 检查是否超出屏幕
-            if ((isLeft && barrageState.left > window.innerWidth) || (!isLeft && barrageState.left < -barrageState.width)) {
-                // 移除弹幕元素
-                if (barrage.parentNode === container) {
-                    container.removeChild(barrage);
-                }
-                
-                // 设置冷却时间
-                const cooldowns = isLeft ? leftColumnCooldowns : rightColumnCooldowns;
-                if (cooldowns) {
-                    cooldowns[columnIndex] = Date.now() + totalCooldownTime;
-                }
-                
-                // 从活跃弹幕列表中移除
-                const activeIndex = activeBarrages.findIndex(b => b.id === barrageId);
-                if (activeIndex !== -1) {
-                    activeBarrages.splice(activeIndex, 1);
-                }
-                
-                // 标记为非活跃
-                barrageState.active = false;
-            } else {
-                // 继续动画
-                requestAnimationFrame(move);
-            }
-        }
-        
+
         // 启动动画
-        requestAnimationFrame(move);
+        animateBarrage(barrageState);
     }, 10);
 }
 
 // 创建单个弹幕
 function createBarrage() {
     if (!isPageVisible || !container) return;
-    
+
+    const now = Date.now();
+    if (now < nextGlobalSpawnAt) return;
+
+    const availableSides = [];
+    if (isSideAvailable('left')) availableSides.push('left');
+    if (isSideAvailable('right')) availableSides.push('right');
+    if (availableSides.length === 0) return;
+
+    const sideKey = availableSides[Math.floor(Math.random() * availableSides.length)];
     const poem = poems[Math.floor(Math.random() * poems.length)];
     const color = barrageConfig.colors[Math.floor(Math.random() * barrageConfig.colors.length)];
-    
-    // 随机选择左侧或右侧
-    const isLeft = Math.random() > 0.5;
-    
-    // 为选定侧创建弹幕
-    createBarrageForSide(poem, color, isLeft);
+
+    nextGlobalSpawnAt = now + barrageConfig.minGlobalInterval + Math.random() * barrageConfig.globalJitter;
+    createBarrageForSide(poem, color, sideKey);
 }
 
 // 初始化弹幕系统
@@ -286,10 +275,6 @@ function handleVisibilityChange() {
             clearInterval(barrageInterval);
             barrageInterval = null;
         }
-        // 暂停所有活跃弹幕的动画
-        activeBarrages.forEach(barrage => {
-            barrage.active = false;
-        });
     } else {
         isPageVisible = true;
         if (!barrageInterval) {
@@ -297,46 +282,24 @@ function handleVisibilityChange() {
                 createBarrage();
             }, barrageConfig.interval);
         }
-        // 重新启动所有活跃弹幕的动画
-        activeBarrages.forEach(barrage => {
-            if (barrage.active === false && barrage.element) {
-                barrage.active = true;
-                // 重新启动动画
-                function resumeMove() {
-                    if (!isPageVisible || !barrage.active) return;
-                    
-                    barrage.left += barrage.speed;
-                    barrage.element.style.left = `${barrage.left}px`;
-                    
-                    if ((barrage.isLeft && barrage.left > window.innerWidth) || (!barrage.isLeft && barrage.left < -barrage.width)) {
-                        if (barrage.element.parentNode === container) {
-                            container.removeChild(barrage.element);
-                        }
-                        
-                        const cooldowns = barrage.isLeft ? leftColumnCooldowns : rightColumnCooldowns;
-                        if (cooldowns) {
-                            cooldowns[barrage.columnIndex] = Date.now() + barrage.totalCooldownTime;
-                        }
-                        
-                        const activeIndex = activeBarrages.findIndex(b => b.id === barrage.id);
-                        if (activeIndex !== -1) {
-                            activeBarrages.splice(activeIndex, 1);
-                        }
-                        
-                        barrage.active = false;
-                    } else {
-                        requestAnimationFrame(resumeMove);
-                    }
-                }
-                requestAnimationFrame(resumeMove);
-            }
-        });
     }
 }
 
 // 处理窗口大小变化
 function handleResize() {
-    // 可以在这里添加响应式调整
+    activeBarrages.forEach((barrage) => {
+        if (!barrage.active || !barrage.element) return;
+
+        const isLeft = barrage.side === 'left';
+        const width = barrage.width || barrage.element.offsetWidth;
+        const edgeJitter = Math.random() * barrageConfig.sideWidthJitter;
+
+        barrage.left = isLeft
+            ? barrageConfig.sidePadding + edgeJitter
+            : window.innerWidth - width - barrageConfig.sidePadding - edgeJitter;
+
+        barrage.element.style.left = `${barrage.left}px`;
+    });
 }
 
 // 公共API
@@ -382,6 +345,8 @@ window.poemBarrage = {
                 }
             });
         }
+        activeBarrages = [];
+        initColumns();
     }
 };
 
