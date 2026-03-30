@@ -37,21 +37,19 @@ const poems = [
 
 // 弹幕配置
 const barrageConfig = {
-    riseSpeed: 0.75,      // 向上移动速度（px/帧）
-    speedJitter: 0.25,    // 速度随机浮动
+    speed: 1.15,             // 从右向左移动速度（px/帧）
     fontSize: 20,
-    interval: 2200,       // 定时器触发间隔（毫秒）
-    minGlobalInterval: 1800, // 全局最小发射间隔（毫秒）
-    globalJitter: 700,    // 全局随机抖动（毫秒）
-    sideCooldown: 2800,   // 单侧最小冷却（毫秒）
-    sideCooldownJitter: 800,
-    minSpawnGap: 120,     // 底部保护区，避免堆叠
-    maxActivePerSide: 2,  // 每侧最大同时弹幕数量
-    sidePadding: 18,      // 距离左右边缘像素
-    sideWidthJitter: 36,  // 左右侧横向轻微随机
+    interval: 420,           // 调度器检查间隔（毫秒）
+    minGlobalInterval: 520,  // 全局最小发射间隔（毫秒）
+    globalJitter: 180,
+    lanePaddingTop: 80,
+    lanePaddingBottom: 80,
+    laneGap: 8,
+    spawnOffset: 24,         // 初始在屏幕右侧之外的偏移
+    minSpawnGap: 160,        // 同行最小安全距离
     fontFamily: "'STKaiti', 'SimSun', 'Microsoft YaHei', serif",
     colors: ['#FFD700', '#98FB98', '#87CEEB', '#FFB6C1', '#DDA0DD', '#FFA07A'],
-    maxWidth: 300,
+    maxWidth: 420,
     opacity: 1,
     lineHeight: 1.2
 };
@@ -62,35 +60,40 @@ let barrageInterval;
 let isPageVisible = true;
 let activeBarrages = [];
 let nextGlobalSpawnAt = 0;
+let laneStates = [];
+let laneHeight = 0;
 
-let sideState = {
-    left: { activeCount: 0, nextSpawnAt: 0 },
-    right: { activeCount: 0, nextSpawnAt: 0 }
-};
-
-// 处理诗词文本，竖版显示
+// 保持横排文本
 function processPoemText(text) {
-    return text.replace(/\s+/g, '');
+    return text;
 }
 
-function initColumns() {
-    sideState = {
-        left: { activeCount: 0, nextSpawnAt: 0 },
-        right: { activeCount: 0, nextSpawnAt: 0 }
-    };
+function initLanes() {
+    laneHeight = Math.ceil(barrageConfig.fontSize * barrageConfig.lineHeight + barrageConfig.laneGap);
+    const usableHeight = Math.max(120, window.innerHeight - barrageConfig.lanePaddingTop - barrageConfig.lanePaddingBottom);
+    const laneCount = Math.max(1, Math.floor(usableHeight / laneHeight));
+
+    laneStates = Array.from({ length: laneCount }, () => ({
+        nextSpawnAt: 0
+    }));
 }
 
-function isSideAvailable(sideKey) {
-    const state = sideState[sideKey];
-    if (!state) return false;
-    if (Date.now() < state.nextSpawnAt) return false;
-    if (state.activeCount >= barrageConfig.maxActivePerSide) return false;
+function laneTopByIndex(laneIndex) {
+    return barrageConfig.lanePaddingTop + laneIndex * laneHeight;
+}
 
-    const bottomGuardLine = window.innerHeight - barrageConfig.minSpawnGap;
-    const hasNearBottomBarrage = activeBarrages.some((barrage) => {
-        return barrage.active && barrage.side === sideKey && barrage.top > bottomGuardLine;
+function isLaneAvailable(laneIndex, now) {
+    const laneState = laneStates[laneIndex];
+    if (!laneState) return false;
+    if (now < laneState.nextSpawnAt) return false;
+
+    const spawnGuardX = window.innerWidth - barrageConfig.minSpawnGap;
+    const hasNearSpawnBarrage = activeBarrages.some((barrage) => {
+        if (!barrage.active || barrage.lane !== laneIndex) return false;
+        return barrage.x + barrage.width > spawnGuardX;
     });
-    return !hasNearBottomBarrage;
+
+    return !hasNearSpawnBarrage;
 }
 
 function removeBarrageState(barrageState) {
@@ -99,11 +102,6 @@ function removeBarrageState(barrageState) {
     barrageState.active = false;
     if (barrageState.element && barrageState.element.parentNode === container) {
         container.removeChild(barrageState.element);
-    }
-
-    const state = sideState[barrageState.side];
-    if (state) {
-        state.activeCount = Math.max(0, state.activeCount - 1);
     }
 
     const activeIndex = activeBarrages.findIndex((item) => item.id === barrageState.id);
@@ -115,15 +113,16 @@ function removeBarrageState(barrageState) {
 function animateBarrage(barrageState) {
     function move() {
         if (!barrageState.active) return;
+
         if (!isPageVisible) {
             requestAnimationFrame(move);
             return;
         }
 
-        barrageState.top -= barrageState.speed;
-        barrageState.element.style.top = `${barrageState.top}px`;
+        barrageState.x -= barrageState.speed;
+        barrageState.element.style.left = `${barrageState.x}px`;
 
-        if (barrageState.top < -barrageState.height - 40) {
+        if (barrageState.x < -barrageState.width - 40) {
             removeBarrageState(barrageState);
             return;
         }
@@ -134,11 +133,8 @@ function animateBarrage(barrageState) {
     requestAnimationFrame(move);
 }
 
-// 为指定侧创建弹幕（左右两侧，从下向上）
-function createBarrageForSide(poem, color, sideKey) {
+function createBarrageInLane(poem, color, laneIndex) {
     const barrage = document.createElement('div');
-
-    // 设置弹幕样式
     barrage.style.cssText = `
         position: absolute;
         max-width: ${barrageConfig.maxWidth}px;
@@ -153,87 +149,71 @@ function createBarrageForSide(poem, color, sideKey) {
         pointer-events: none;
         user-select: none;
         line-height: ${barrageConfig.lineHeight};
-        writing-mode: vertical-rl;
-        text-orientation: upright;
-        white-space: normal;
-        letter-spacing: 2px;
+        white-space: nowrap;
         text-shadow: 0 0 8px rgba(255, 255, 255, 0.5), 1px 1px 3px rgba(0, 0, 0, 0.6), -1px 1px 3px rgba(0, 0, 0, 0.3);
         z-index: 9999;
-        transition: opacity 1s ease-in-out;
+        transition: opacity 0.6s ease-in-out;
     `;
-    
-    // 设置弹幕内容
-    barrage.innerHTML = processPoemText(poem);
+
+    barrage.textContent = processPoemText(poem);
     container.appendChild(barrage);
-    
-    // 计算尺寸与起始位置
+
     setTimeout(() => {
         const width = barrage.offsetWidth;
-        const height = barrage.offsetHeight;
+        const x = window.innerWidth + barrageConfig.spawnOffset;
+        const y = laneTopByIndex(laneIndex);
+        const speed = barrageConfig.speed;
 
-        const isLeft = sideKey === 'left';
-        const edgeJitter = Math.random() * barrageConfig.sideWidthJitter;
-        const left = isLeft
-            ? barrageConfig.sidePadding + edgeJitter
-            : window.innerWidth - width - barrageConfig.sidePadding - edgeJitter;
-        const top = window.innerHeight + 20;
-        const speed = barrageConfig.riseSpeed + Math.random() * barrageConfig.speedJitter;
-
-        // 创建弹幕状态
-        const barrageId = Date.now() + Math.random();
         const barrageState = {
-            id: barrageId,
+            id: Date.now() + Math.random(),
             element: barrage,
-            side: sideKey,
-            left: left,
-            top: top,
+            lane: laneIndex,
+            x: x,
+            y: y,
             width: width,
-            height: height,
             speed: speed,
             active: true
         };
 
-        // 设置初始定位
-        barrage.style.left = `${left}px`;
-        barrage.style.top = `${top}px`;
+        barrage.style.left = `${x}px`;
+        barrage.style.top = `${y}px`;
 
-        const state = sideState[sideKey];
-        if (state) {
-            state.activeCount += 1;
-            state.nextSpawnAt = Date.now() + barrageConfig.sideCooldown + Math.random() * barrageConfig.sideCooldownJitter;
-        }
+        // 依据速度与宽度计算该行下一次可安全发射时间，避免同行重叠。
+        const travelPx = barrageConfig.spawnOffset + width + barrageConfig.minSpawnGap;
+        const safeMs = Math.ceil((travelPx / speed) * 16.67);
+        laneStates[laneIndex].nextSpawnAt = Date.now() + safeMs;
 
-        // 添加到活跃弹幕列表
         activeBarrages.push(barrageState);
 
-        // 渐入效果
         setTimeout(() => {
             barrage.style.opacity = barrageConfig.opacity;
-        }, 100);
+        }, 80);
 
-        // 启动动画
         animateBarrage(barrageState);
     }, 10);
 }
 
-// 创建单个弹幕
 function createBarrage() {
     if (!isPageVisible || !container) return;
 
     const now = Date.now();
     if (now < nextGlobalSpawnAt) return;
 
-    const availableSides = [];
-    if (isSideAvailable('left')) availableSides.push('left');
-    if (isSideAvailable('right')) availableSides.push('right');
-    if (availableSides.length === 0) return;
+    const availableLanes = [];
+    for (let i = 0; i < laneStates.length; i++) {
+        if (isLaneAvailable(i, now)) {
+            availableLanes.push(i);
+        }
+    }
 
-    const sideKey = availableSides[Math.floor(Math.random() * availableSides.length)];
+    if (availableLanes.length === 0) return;
+
+    const laneIndex = availableLanes[Math.floor(Math.random() * availableLanes.length)];
     const poem = poems[Math.floor(Math.random() * poems.length)];
     const color = barrageConfig.colors[Math.floor(Math.random() * barrageConfig.colors.length)];
 
     nextGlobalSpawnAt = now + barrageConfig.minGlobalInterval + Math.random() * barrageConfig.globalJitter;
-    createBarrageForSide(poem, color, sideKey);
+    createBarrageInLane(poem, color, laneIndex);
 }
 
 // 初始化弹幕系统
@@ -253,8 +233,8 @@ function initBarrageSystem() {
     `;
     document.body.appendChild(container);
     
-    // 初始化列数组
-    initColumns();
+    // 初始化行道
+    initLanes();
     
     // 设置弹幕生成间隔
     barrageInterval = setInterval(() => {
@@ -289,18 +269,11 @@ function handleVisibilityChange() {
 
 // 处理窗口大小变化
 function handleResize() {
+    initLanes();
     activeBarrages.forEach((barrage) => {
         if (!barrage.active || !barrage.element) return;
-
-        const isLeft = barrage.side === 'left';
-        const width = barrage.width || barrage.element.offsetWidth;
-        const edgeJitter = Math.random() * barrageConfig.sideWidthJitter;
-
-        barrage.left = isLeft
-            ? barrageConfig.sidePadding + edgeJitter
-            : window.innerWidth - width - barrageConfig.sidePadding - edgeJitter;
-
-        barrage.element.style.left = `${barrage.left}px`;
+        barrage.y = laneTopByIndex(Math.min(barrage.lane, laneStates.length - 1));
+        barrage.element.style.top = `${barrage.y}px`;
     });
 }
 
@@ -348,7 +321,7 @@ window.poemBarrage = {
             });
         }
         activeBarrages = [];
-        initColumns();
+        initLanes();
     }
 };
 
