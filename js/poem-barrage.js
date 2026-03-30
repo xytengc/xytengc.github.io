@@ -331,3 +331,4 @@ if (document.readyState === 'loading') {
 } else {
     initBarrageSystem();
 }
+    
